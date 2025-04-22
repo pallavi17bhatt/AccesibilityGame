@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Retail Catalog Tagger – Accessible + Drag‑Drop</title>
+  <title>Retail Catalog Tagger – Audio Edition</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
@@ -16,12 +16,12 @@
     header{margin-bottom:1rem;text-align:center}
     main{width:100%;max-width:900px;display:flex;flex-direction:column;align-items:center;gap:1.25rem}
 
-    /* Image box */
+    /* Image preview */
     #image-box{width:320px;height:320px;border-radius:1rem;overflow:hidden;background:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12)}
     #product-img{width:100%;height:100%;object-fit:cover;user-select:none;cursor:grab}
     #product-img.dragging{opacity:.55}
 
-    /* Category buttons / drop targets */
+    /* Buckets */
     .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;width:100%}
     .bucket-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:2rem 1rem;border:none;border-radius:1rem;font-size:1.1rem;font-weight:600;cursor:pointer;transition:transform .25s,background .25s;color:#111827;background:#e5e7eb}
     .bucket-btn .icon{font-size:3rem;line-height:1}
@@ -41,22 +41,25 @@
   </style>
 </head>
 <body>
-  <a href="#main" class="sr-only" id="skip-link">Skip to game</a>
+  <a href="#main" class="sr-only">Skip to game</a>
   <header>
-    <h1 id="title">Retail Catalog Tagger</h1>
+    <h1>Retail Catalog Tagger</h1>
     <p>
-      Tag each product image as either a T‑Shirt or a Handbag.<br>
-      <strong>Options:</strong> drag the image onto a bucket, click/tap the bucket, or press <kbd>T</kbd>/<kbd>H</kbd>.
-      Screen‑reader users receive spoken feedback.
+      Tag each product as a <strong>T‑Shirt</strong> or <strong>Handbag</strong>.<br>
+      Drag & drop, click/tap, or press <kbd>T</kbd>/<kbd>H</kbd>. Correct matches play a chime; match all 10 to hear "You won!".
     </p>
   </header>
+
+  <!-- Hidden audio elements (royalty‑free from mixkit.co) -->
+  <audio id="correctSound" src="audio/correct.mp3" preload="auto" aria-label="Correct answer chime"></audio>
+  <audio id="winSound" src="audio/win.mp3" preload="auto" aria-label="Winning fanfare"></audio>
 
   <main id="main" tabindex="-1">
     <div id="live" class="sr-only" aria-live="polite"></div>
 
     <figure id="image-box" aria-labelledby="caption">
       <img id="product-img" src="" alt="Product image to classify" draggable="true" />
-      <figcaption id="caption" class="sr-only">Drag or choose the correct category below.</figcaption>
+      <figcaption id="caption" class="sr-only">Choose the correct category below or drag the image on top of it.</figcaption>
     </figure>
 
     <div class="buckets" role="group" aria-label="Category choices">
@@ -107,6 +110,10 @@
     const resetBtn=document.getElementById('reset-btn');
     const live=document.getElementById('live');
 
+    /* AUDIO */
+    const correctSound=document.getElementById('correctSound');
+    const winSound=document.getElementById('winSound');
+
     /* UTILS */
     const announce=msg=>{live.textContent='';setTimeout(()=>live.textContent=msg,40);};
     const updateStats=()=>{scoreSpan.textContent=score;itemSpan.textContent=current+1;};
@@ -126,35 +133,43 @@
       updateStats();
     }
 
-    /* CLASSIFICATION HANDLER */
+    /* CLASSIFY */
     function classify(choice){
       const correct=choice===items[current].category;
       const btn=choice==='tshirt'?btnT:btnH;
       btn.classList.add(correct?'correct':'wrong');
+      if(correct){
+        // Play chime only on first correct attempt
+        if(!answered[current]) correctSound.play();
+      }
       announce(correct?`Correct. Score ${(answered[current]?score:score+1)} of 10.`:'Wrong. Try again.');
       if(correct && !answered[current]){
         answered[current]=true;
         score=Math.min(score+1,items.length);
         nextBtn.disabled=false;
         updateStats();
+        if(score===items.length){
+          winSound.play();
+          announce('Congratulations, you matched all items!');
+        }
       }
     }
 
-    /* CLICK EVENTS */
+    /* CLICK */
     btnT.addEventListener('click',()=>classify('tshirt'));
     btnH.addEventListener('click',()=>classify('handbag'));
 
-    /* KEYBOARD SHORTCUTS */
+    /* KEYBOARD */
     window.addEventListener('keydown',e=>{
       if(e.key.toLowerCase()==='t') classify('tshirt');
       if(e.key.toLowerCase()==='h') classify('handbag');
     });
 
-    /* DRAG & DROP EVENTS */
+    /* DRAG & DROP */
     img.addEventListener('dragstart',e=>{
       e.dataTransfer.effectAllowed='move';
       img.classList.add('dragging');
-      announce('Drag started. Move to category and release.');
+      announce('Dragging image. Drag onto T‑Shirt or Handbag.');
     });
     img.addEventListener('dragend',()=>img.classList.remove('dragging'));
 
@@ -167,7 +182,7 @@
       });
     });
 
-    /* NAVIGATION CONTROLS */
+    /* NAV CONTROLS */
     nextBtn.addEventListener('click',()=>{
       if(current<items.length-1){current++;loadItem();}
       else announce('Last card reached. End game or reset.');
@@ -183,7 +198,6 @@
       current=0;score=0;answered.fill(false);loadItem();announce('Game reset.');
     });
 
-    /* Disable prev when at first card */
     setInterval(()=>prevBtn.disabled=current===0,250);
 
     /* INIT */
