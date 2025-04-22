@@ -3,16 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Retail Catalog Tagger – Accessible Prototype</title>
+  <title>Retail Catalog Tagger – Accessible + Drag‑Drop</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    /* --- RESET & BASE --- */
+    /* RESET & BASE */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Inter',sans-serif;line-height:1.5;background:#f2f2f7;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:1.5rem}
     :focus-visible{outline:3px solid #2563eb;outline-offset:3px}
-
-    /* Screen‑reader‑only utility */
     .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;border:0!important}
 
     header{margin-bottom:1rem;text-align:center}
@@ -20,15 +18,17 @@
 
     /* Image box */
     #image-box{width:320px;height:320px;border-radius:1rem;overflow:hidden;background:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12)}
-    #product-img{width:100%;height:100%;object-fit:cover;user-select:none}
+    #product-img{width:100%;height:100%;object-fit:cover;user-select:none;cursor:grab}
+    #product-img.dragging{opacity:.55}
 
-    /* Labels / buckets become real <button>s for keyboard + SR */
+    /* Category buttons / drop targets */
     .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;width:100%}
     .bucket-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:2rem 1rem;border:none;border-radius:1rem;font-size:1.1rem;font-weight:600;cursor:pointer;transition:transform .25s,background .25s;color:#111827;background:#e5e7eb}
     .bucket-btn .icon{font-size:3rem;line-height:1}
+    .bucket-btn:hover:not([disabled]){transform:translateY(-3px)}
     .bucket-btn.correct{background:#a7f3d0}
     .bucket-btn.wrong{background:#fecaca}
-    .bucket-btn:hover{transform:translateY(-3px)}
+    .bucket-btn.hover{background:#dbeafe}
     .bucket-btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
 
     /* Controls */
@@ -44,32 +44,30 @@
   <a href="#main" class="sr-only" id="skip-link">Skip to game</a>
   <header>
     <h1 id="title">Retail Catalog Tagger</h1>
-    <p>Tag each product image as either a T‑Shirt or a Handbag. Use your <strong>keyboard</strong> (press T or H) or <strong>click</strong>/<strong>tap</strong> one of the category buttons. Screen‑reader users will hear feedback after every action.</p>
+    <p>
+      Tag each product image as either a T‑Shirt or a Handbag.<br>
+      <strong>Options:</strong> drag the image onto a bucket, click/tap the bucket, or press <kbd>T</kbd>/<kbd>H</kbd>.
+      Screen‑reader users receive spoken feedback.
+    </p>
   </header>
 
   <main id="main" tabindex="-1">
-    <!-- Live region for dynamic feedback -->
     <div id="live" class="sr-only" aria-live="polite"></div>
 
-    <!-- Product preview -->
     <figure id="image-box" aria-labelledby="caption">
-      <img id="product-img" src="" alt="Product image to classify" />
-      <figcaption id="caption" class="sr-only">Product to classify – choose the correct category below.</figcaption>
+      <img id="product-img" src="" alt="Product image to classify" draggable="true" />
+      <figcaption id="caption" class="sr-only">Drag or choose the correct category below.</figcaption>
     </figure>
 
-    <!-- Accessible category buttons -->
     <div class="buckets" role="group" aria-label="Category choices">
       <button type="button" class="bucket-btn" data-category="tshirt" id="btn-tshirt">
-        <span class="icon" aria-hidden="true">👕</span>
-        <span>T‑Shirt</span>
+        <span class="icon" aria-hidden="true">👕</span><span>T‑Shirt</span>
       </button>
       <button type="button" class="bucket-btn" data-category="handbag" id="btn-handbag">
-        <span class="icon" aria-hidden="true">👜</span>
-        <span>Handbag</span>
+        <span class="icon" aria-hidden="true">👜</span><span>Handbag</span>
       </button>
     </div>
 
-    <!-- Stats & controls -->
     <p id="stats">Score: <span id="score">0</span> / 10 &nbsp;|&nbsp; Card: <span id="current-item">1</span> / 10</p>
     <div id="controls">
       <button id="prev-btn" class="ctrl secondary">← Previous</button>
@@ -80,7 +78,7 @@
   </main>
 
   <script>
-    /* ====== DATASET ====== */
+    /* DATASET */
     const items=[
       {src:'https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
       {src:'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',category:'handbag'},
@@ -94,50 +92,46 @@
       {src:'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80',category:'handbag'}
     ];
 
-    /* ====== STATE ====== */
-    let current=0;
-    let score=0;
-    const answered=Array(items.length).fill(false);
+    /* STATE */
+    let current=0,score=0;const answered=Array(items.length).fill(false);
 
-    /* ====== DOM REFS ====== */
+    /* DOM */
     const img=document.getElementById('product-img');
+    const btnT=document.getElementById('btn-tshirt');
+    const btnH=document.getElementById('btn-handbag');
     const scoreSpan=document.getElementById('score');
     const itemSpan=document.getElementById('current-item');
     const prevBtn=document.getElementById('prev-btn');
     const nextBtn=document.getElementById('next-btn');
     const endBtn=document.getElementById('end-btn');
     const resetBtn=document.getElementById('reset-btn');
-    const btnT=document.getElementById('btn-tshirt');
-    const btnH=document.getElementById('btn-handbag');
     const live=document.getElementById('live');
 
-    /* ====== UTILS ====== */
-    function announce(msg){live.textContent='';setTimeout(()=>live.textContent=msg,50);} // ensure SR picks it up
+    /* UTILS */
+    const announce=msg=>{live.textContent='';setTimeout(()=>live.textContent=msg,40);};
+    const updateStats=()=>{scoreSpan.textContent=score;itemSpan.textContent=current+1;};
 
-    function updateStats(){scoreSpan.textContent=score;itemSpan.textContent=current+1;}
+    const resetBuckets=()=>[btnT,btnH].forEach(b=>b.classList.remove('correct','wrong','hover'));
 
-    function resetButtons(){[btnT,btnH].forEach(b=>b.classList.remove('correct','wrong'));}
-
+    /* LOAD CARD */
     function loadItem(){
       const item=items[current];
       img.src=item.src;
-      img.alt=`Product image number ${current+1} to classify`;
-      resetButtons();
+      img.alt=`Product image ${current+1} of 10. Classify as T‑Shirt or Handbag.`;
+      resetBuckets();
       nextBtn.disabled=!answered[current];
       if(answered[current]){
-        // highlight correct choice already done
-        const correctBtn=item.category==='tshirt'?btnT:btnH;
-        correctBtn.classList.add('correct');
+        (item.category==='tshirt'?btnT:btnH).classList.add('correct');
       }
       updateStats();
     }
 
-    /* ====== GAME LOGIC ====== */
+    /* CLASSIFICATION HANDLER */
     function classify(choice){
       const correct=choice===items[current].category;
       const btn=choice==='tshirt'?btnT:btnH;
       btn.classList.add(correct?'correct':'wrong');
-      announce(correct?`Correct! Score ${score+(!answered[current]?1:0)} of 10.`:'Wrong, try again.');
+      announce(correct?`Correct. Score ${(answered[current]?score:score+1)} of 10.`:'Wrong. Try again.');
       if(correct && !answered[current]){
         answered[current]=true;
         score=Math.min(score+1,items.length);
@@ -146,21 +140,38 @@
       }
     }
 
-    /* ====== EVENT HANDLERS ====== */
+    /* CLICK EVENTS */
     btnT.addEventListener('click',()=>classify('tshirt'));
     btnH.addEventListener('click',()=>classify('handbag'));
 
-    // Keyboard shortcuts T / H for quick tagging
+    /* KEYBOARD SHORTCUTS */
     window.addEventListener('keydown',e=>{
       if(e.key.toLowerCase()==='t') classify('tshirt');
       if(e.key.toLowerCase()==='h') classify('handbag');
     });
 
+    /* DRAG & DROP EVENTS */
+    img.addEventListener('dragstart',e=>{
+      e.dataTransfer.effectAllowed='move';
+      img.classList.add('dragging');
+      announce('Drag started. Move to category and release.');
+    });
+    img.addEventListener('dragend',()=>img.classList.remove('dragging'));
+
+    [btnT,btnH].forEach(bucket=>{
+      bucket.addEventListener('dragover',e=>{e.preventDefault();bucket.classList.add('hover');});
+      bucket.addEventListener('dragleave',()=>bucket.classList.remove('hover'));
+      bucket.addEventListener('drop',e=>{
+        e.preventDefault();bucket.classList.remove('hover');
+        classify(bucket.dataset.category);
+      });
+    });
+
+    /* NAVIGATION CONTROLS */
     nextBtn.addEventListener('click',()=>{
       if(current<items.length-1){current++;loadItem();}
       else announce('Last card reached. End game or reset.');
     });
-
     prevBtn.addEventListener('click',()=>{if(current>0){current--;loadItem();}});
 
     endBtn.addEventListener('click',()=>{
@@ -172,10 +183,10 @@
       current=0;score=0;answered.fill(false);loadItem();announce('Game reset.');
     });
 
-    /* Disable prev when at first card (observer) */
+    /* Disable prev when at first card */
     setInterval(()=>prevBtn.disabled=current===0,250);
 
-    /* ====== INIT ====== */
+    /* INIT */
     loadItem();
   </script>
 </body>
