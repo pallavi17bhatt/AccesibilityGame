@@ -69,7 +69,7 @@
   </main>
 
   <script>
-    const items = [
+        const items = [
   { src: 'https://images.unsplash.com/photo-1580910051073-6ec90ebd42d6?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
   { src: 'https://images.unsplash.com/photo-1618354691373-80f451be8a18?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
   { src: 'https://images.unsplash.com/photo-1603808033192-0d68e42c8467?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
@@ -139,14 +139,20 @@
         answered[current] = true;
         score = Math.min(score + 1, items.length);
         nextBtn.disabled = false;
-        correctSound.play();
         updateStats();
+        correctSound.play();
         if (score === items.length) {
           winSound.play();
           announce('Congratulations! You tagged all items correctly!');
         }
+        setTimeout(() => {
+          if (current < items.length - 1) {
+            current++;
+            loadItem();
+          }
+        }, 1000);
+        }
       }
-    }
 
     buckets.forEach(bucket => {
       bucket.addEventListener('click', () => classify(bucket.dataset.category));
