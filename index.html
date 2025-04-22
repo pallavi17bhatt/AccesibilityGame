@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    /* RESET & BASE */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Inter',sans-serif;line-height:1.5;background:#f2f2f7;color:#111827;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:1.5rem}
     :focus-visible{outline:3px solid #2563eb;outline-offset:3px}
@@ -20,9 +19,9 @@
     #product-img{width:100%;height:100%;object-fit:cover;user-select:none;cursor:grab}
     #product-img.dragging{opacity:.55}
 
-    .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;width:100%}
-    .bucket-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:2rem 1rem;border:none;border-radius:1rem;font-size:1.1rem;font-weight:600;cursor:pointer;transition:transform .25s,background .25s;color:#111827;background:#e5e7eb}
-    .bucket-btn .icon{font-size:3rem;line-height:1}
+    .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;width:100%}
+    .bucket-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:1.5rem 1rem;border:none;border-radius:1rem;font-size:1rem;font-weight:600;cursor:pointer;transition:transform .25s,background .25s;color:#111827;background:#e5e7eb}
+    .bucket-btn .icon{font-size:2rem;line-height:1}
     .bucket-btn:hover:not([disabled]){transform:translateY(-3px)}
     .bucket-btn.correct{background:#a7f3d0}
     .bucket-btn.wrong{background:#fecaca}
@@ -42,34 +41,25 @@
   <header>
     <h1>Retail Catalog Tagger</h1>
     <p>
-      Tag each product as a <strong>T‑Shirt</strong> or <strong>Handbag</strong>.<br>
-      Drag & drop, click/tap, or press <kbd>T</kbd>/<kbd>H</kbd>. Correct matches play a chime; wrong matches play a buzz; match all 10 to hear "You won!".
+      Tag each product into one of five categories. Drag & drop, click, or use keyboard. Score updates with sounds for correct and wrong answers.
     </p>
   </header>
 
-  <!-- Hidden audio elements -->
-  <audio id="correctSound" src="audio/correct.mp3" preload="auto" aria-label="Correct answer chime"></audio>
-  <audio id="wrongSound" src="audio/wrong.mp3" preload="auto" aria-label="Wrong answer buzz"></audio>
-  <audio id="winSound" src="audio/win.mp3" preload="auto" aria-label="Winning fanfare"></audio>
+  <audio id="correctSound" src="audio/correct.mp3" preload="auto"></audio>
+  <audio id="wrongSound" src="audio/wrong.mp3" preload="auto"></audio>
+  <audio id="winSound" src="audio/win.mp3" preload="auto"></audio>
 
   <main id="main" tabindex="-1">
     <div id="live" class="sr-only" aria-live="polite"></div>
-
-    <figure id="image-box" aria-labelledby="caption">
-      <img id="product-img" src="" alt="Product image to classify" draggable="true" />
-      <figcaption id="caption" class="sr-only">Choose the correct category below or drag the image on top of it.</figcaption>
-    </figure>
-
-    <div class="buckets" role="group" aria-label="Category choices">
-      <button type="button" class="bucket-btn" data-category="tshirt" id="btn-tshirt">
-        <span class="icon" aria-hidden="true">👕</span><span>T‑Shirt</span>
-      </button>
-      <button type="button" class="bucket-btn" data-category="handbag" id="btn-handbag">
-        <span class="icon" aria-hidden="true">👜</span><span>Handbag</span>
-      </button>
+    <figure id="image-box"><img id="product-img" src="" alt="Product image to classify" draggable="true" /></figure>
+    <div class="buckets" role="group">
+      <button type="button" class="bucket-btn" data-category="tshirt"><span class="icon">👕</span>T‑Shirt</button>
+      <button type="button" class="bucket-btn" data-category="handbag"><span class="icon">👜</span>Handbag</button>
+      <button type="button" class="bucket-btn" data-category="shoes"><span class="icon">👟</span>Shoes</button>
+      <button type="button" class="bucket-btn" data-category="watch"><span class="icon">⌚</span>Watch</button>
+      <button type="button" class="bucket-btn" data-category="hat"><span class="icon">🎩</span>Hat</button>
     </div>
-
-    <p id="stats">Score: <span id="score">0</span> / 10 &nbsp;|&nbsp; Card: <span id="current-item">1</span> / 10</p>
+    <p id="stats">Score: <span id="score">0</span> / 25 &nbsp;|&nbsp; Card: <span id="current-item">1</span> / 25</p>
     <div id="controls">
       <button id="prev-btn" class="ctrl secondary">← Previous</button>
       <button id="next-btn" class="ctrl primary" disabled>Next →</button>
@@ -79,102 +69,121 @@
   </main>
 
   <script>
-    const items=[
-      {src:'https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
-      {src:'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',category:'handbag'},
-      {src:'https://images.unsplash.com/photo-1556909212-d9b2a3e2a2f4?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
-      {src:'https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=800&q=80',category:'handbag'},
-      {src:'https://images.unsplash.com/photo-1582782080541-44035d3992de?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
-      {src:'https://images.unsplash.com/photo-1594633315081-c06e88e1a30c?auto=format&fit=crop&w=800&q=80',category:'handbag'},
-      {src:'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
-      {src:'https://images.unsplash.com/photo-1610396323497-5f6455d4df58?auto=format&fit=crop&w=800&q=80',category:'handbag'},
-      {src:'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
-      {src:'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80',category:'handbag'}
-    ];
+    const items = [
+  { src: 'https://images.unsplash.com/photo-1580910051073-6ec90ebd42d6?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
+  { src: 'https://images.unsplash.com/photo-1618354691373-80f451be8a18?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
+  { src: 'https://images.unsplash.com/photo-1603808033192-0d68e42c8467?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
+  { src: 'https://images.unsplash.com/photo-1587293852726-70cdb56c2868?auto=format&fit=crop&w=400&q=80', category: 'watch' },
+  { src: 'https://images.unsplash.com/photo-1562157873-818bc0726fef?auto=format&fit=crop&w=400&q=80', category: 'hat' },
+  { src: 'https://images.unsplash.com/photo-1600180758890-a6ccae0b26f3?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
+  { src: 'https://images.unsplash.com/photo-1612355812091-2e2a70a7cfb9?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
+  { src: 'https://images.unsplash.com/photo-1559563458-527698bf5295?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
+  { src: 'https://images.unsplash.com/photo-1617975603364-3d1a8ea50235?auto=format&fit=crop&w=400&q=80', category: 'watch' },
+  { src: 'https://images.unsplash.com/photo-1585155774677-f15f1498f6c4?auto=format&fit=crop&w=400&q=80', category: 'hat' },
+  { src: 'https://images.unsplash.com/photo-1596464716121-fd43f3cc3e2b?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
+  { src: 'https://images.unsplash.com/photo-1608541284631-78706324475c?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
+  { src: 'https://images.unsplash.com/photo-1608668474521-6427986be4f5?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
+  { src: 'https://images.unsplash.com/photo-1600180371408-8b0cddeddb7c?auto=format&fit=crop&w=400&q=80', category: 'watch' },
+  { src: 'https://images.unsplash.com/photo-1622547774270-90d25cb49f3a?auto=format&fit=crop&w=400&q=80', category: 'hat' },
+  { src: 'https://images.unsplash.com/photo-1622683098307-5cc607facf0d?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
+  { src: 'https://images.unsplash.com/photo-1623122220033-fcefdcc68c53?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
+  { src: 'https://images.unsplash.com/photo-1590402494682-f36b38c9890d?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
+  { src: 'https://images.unsplash.com/photo-1603052875986-92c45cce0f4e?auto=format&fit=crop&w=400&q=80', category: 'watch' },
+  { src: 'https://images.unsplash.com/photo-1606195683974-cd0de586be6d?auto=format&fit=crop&w=400&q=80', category: 'hat' },
+  { src: 'https://images.unsplash.com/photo-1606149054995-72dfc9f9c282?auto=format&fit=crop&w=400&q=80', category: 'tshirt' },
+  { src: 'https://images.unsplash.com/photo-1600180758290-56b203eb9bb4?auto=format&fit=crop&w=400&q=80', category: 'handbag' },
+  { src: 'https://images.unsplash.com/photo-1597838815676-4cdd03df29ea?auto=format&fit=crop&w=400&q=80', category: 'shoes' },
+  { src: 'https://images.unsplash.com/photo-1603153174736-35d91a0a6c09?auto=format&fit=crop&w=400&q=80', category: 'watch' },
+  { src: 'https://images.unsplash.com/photo-1600180759496-2b313e775154?auto=format&fit=crop&w=400&q=80', category: 'hat' }
+];
 
-    let current=0,score=0;const answered=Array(items.length).fill(false);
+    let current = 0, score = 0;
+    const answered = Array(items.length).fill(false);
+    const img = document.getElementById('product-img');
+    const buckets = document.querySelectorAll('.bucket-btn');
+    const scoreSpan = document.getElementById('score');
+    const itemSpan = document.getElementById('current-item');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const endBtn = document.getElementById('end-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const live = document.getElementById('live');
+    const correctSound = document.getElementById('correctSound');
+    const wrongSound = document.getElementById('wrongSound');
+    const winSound = document.getElementById('winSound');
 
-    const img=document.getElementById('product-img');
-    const btnT=document.getElementById('btn-tshirt');
-    const btnH=document.getElementById('btn-handbag');
-    const scoreSpan=document.getElementById('score');
-    const itemSpan=document.getElementById('current-item');
-    const prevBtn=document.getElementById('prev-btn');
-    const nextBtn=document.getElementById('next-btn');
-    const endBtn=document.getElementById('end-btn');
-    const resetBtn=document.getElementById('reset-btn');
-    const live=document.getElementById('live');
+    const announce = msg => { live.textContent = ''; setTimeout(() => live.textContent = msg, 40); };
+    const updateStats = () => { scoreSpan.textContent = score; itemSpan.textContent = current + 1; };
+    const resetBuckets = () => buckets.forEach(b => b.classList.remove('correct', 'wrong', 'hover'));
 
-    const correctSound=document.getElementById('correctSound');
-    const wrongSound=document.getElementById('wrongSound');
-    const winSound=document.getElementById('winSound');
-
-    const announce=msg=>{live.textContent='';setTimeout(()=>live.textContent=msg,40);};
-    const updateStats=()=>{scoreSpan.textContent=score;itemSpan.textContent=current+1;};
-    const resetBuckets=()=>[btnT,btnH].forEach(b=>b.classList.remove('correct','wrong','hover'));
-
-    function loadItem(){
-      const item=items[current];
-      img.src=item.src;
-      img.alt=`Product image ${current+1} of 10. Classify as T‑Shirt or Handbag.`;
+    function loadItem() {
+      const item = items[current];
+      img.src = item.src;
+      img.alt = `Product image ${current + 1} of 25.`;
       resetBuckets();
-      nextBtn.disabled=!answered[current];
-      if(answered[current]){
-        (item.category==='tshirt'?btnT:btnH).classList.add('correct');
+      nextBtn.disabled = !answered[current];
+      if (answered[current]) {
+        const btn = Array.from(buckets).find(b => b.dataset.category === item.category);
+        if (btn) btn.classList.add('correct');
       }
       updateStats();
     }
 
-    function classify(choice){
-      const correct=choice===items[current].category;
-      const btn=choice==='tshirt'?btnT:btnH;
-      btn.classList.add(correct?'correct':'wrong');
-      if(correct){
-        if(!answered[current]) correctSound.play();
-      } else {
-        wrongSound.currentTime = 0;
-        wrongSound.play();
-      }
-      announce(correct?`Correct. Score ${(answered[current]?score:score+1)} of 10.`:'Wrong. Try again.');
-      if(correct && !answered[current]){
-        answered[current]=true;
-        score=Math.min(score+1,items.length);
-        nextBtn.disabled=false;
+    function classify(choice) {
+      const correct = choice === items[current].category;
+      const btn = Array.from(buckets).find(b => b.dataset.category === choice);
+      btn.classList.add(correct ? 'correct' : 'wrong');
+      if (!correct) wrongSound.play();
+      announce(correct ? `Correct. Score ${answered[current] ? score : score + 1} of 25.` : 'Wrong. Try again.');
+      if (correct && !answered[current]) {
+        answered[current] = true;
+        score = Math.min(score + 1, items.length);
+        nextBtn.disabled = false;
+        correctSound.play();
         updateStats();
-        if(score===items.length){
+        if (score === items.length) {
           winSound.play();
-          announce('Congratulations, you matched all items!');
+          announce('Congratulations! You tagged all items correctly!');
         }
       }
     }
 
-    btnT.addEventListener('click',()=>classify('tshirt'));
-    btnH.addEventListener('click',()=>classify('handbag'));
-
-    window.addEventListener('keydown',e=>{
-      if(e.key.toLowerCase()==='t') classify('tshirt');
-      if(e.key.toLowerCase()==='h') classify('handbag');
+    buckets.forEach(bucket => {
+      bucket.addEventListener('click', () => classify(bucket.dataset.category));
+      bucket.addEventListener('dragover', e => { e.preventDefault(); bucket.classList.add('hover'); });
+      bucket.addEventListener('dragleave', () => bucket.classList.remove('hover'));
+      bucket.addEventListener('drop', e => {
+        e.preventDefault();
+        bucket.classList.remove('hover');
+        classify(bucket.dataset.category);
+      });
     });
 
-    img.addEventListener('dragstart',e=>{
-      e.dataTransfer.effectAllowed='move';
+    img.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'move';
       img.classList.add('dragging');
-      announce('Dragging image. Drag onto T‑Shirt or Handbag.');
+      announce('Dragging item. Drop onto a category.');
     });
-    img.addEventListener('dragend',()=>img.classList.remove('dragging'));
+    img.addEventListener('dragend', () => img.classList.remove('dragging'));
 
-    [btnT,btnH].forEach(bucket=>{
-      bucket.addEventListener('dragover',e=>{e.preventDefault();bucket.classList.add('hover');});
-      bucket.addEventListener('dragleave',()=>bucket.classList.remove('hover'));
-      bucket.addEventListener('drop',e=>{e.preventDefault();bucket.classList.remove('hover');classify(bucket.dataset.category);});
+    window.addEventListener('keydown', e => {
+      const map = { t: 'tshirt', h: 'handbag', s: 'shoes', w: 'watch', a: 'hat' };
+      if (map[e.key.toLowerCase()]) classify(map[e.key.toLowerCase()]);
     });
 
-    nextBtn.addEventListener('click',()=>{current<items.length-1?current++:announce('Last card reached.');loadItem();});
-    prevBtn.addEventListener('click',()=>{if(current>0){current--;loadItem();}});
-    endBtn.addEventListener('click',()=>{announce(`Game over. Final score ${score} out of 10.`);alert(`Game Over! You scored ${score} / ${items.length}`);});
-    resetBtn.addEventListener('click',()=>{current=0;score=0;answered.fill(false);loadItem();announce('Game reset.');});
-    setInterval(()=>prevBtn.disabled=current===0,250);
-
+    nextBtn.addEventListener('click', () => {
+      if (current < items.length - 1) { current++; loadItem(); }
+      else announce('Last card reached.');
+    });
+    prevBtn.addEventListener('click', () => { if (current > 0) { current--; loadItem(); } });
+    endBtn.addEventListener('click', () => {
+      announce(`Game over. Final score ${score} of 25.`);
+      alert(`Game Over! You scored ${score} / ${items.length}`);
+    });
+    resetBtn.addEventListener('click', () => {
+      current = 0; score = 0; answered.fill(false); loadItem(); announce('Game reset.');
+    });
+    setInterval(() => prevBtn.disabled = current === 0, 250);
     loadItem();
   </script>
 </body>
