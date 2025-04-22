@@ -16,12 +16,10 @@
     header{margin-bottom:1rem;text-align:center}
     main{width:100%;max-width:900px;display:flex;flex-direction:column;align-items:center;gap:1.25rem}
 
-    /* Image preview */
     #image-box{width:320px;height:320px;border-radius:1rem;overflow:hidden;background:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12)}
     #product-img{width:100%;height:100%;object-fit:cover;user-select:none;cursor:grab}
     #product-img.dragging{opacity:.55}
 
-    /* Buckets */
     .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;width:100%}
     .bucket-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:2rem 1rem;border:none;border-radius:1rem;font-size:1.1rem;font-weight:600;cursor:pointer;transition:transform .25s,background .25s;color:#111827;background:#e5e7eb}
     .bucket-btn .icon{font-size:3rem;line-height:1}
@@ -31,7 +29,6 @@
     .bucket-btn.hover{background:#dbeafe}
     .bucket-btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
 
-    /* Controls */
     #controls{display:flex;flex-wrap:wrap;gap:.8rem;justify-content:center}
     .ctrl{padding:.55rem 1.1rem;border:none;border-radius:.5rem;font-size:1rem;color:#fff;cursor:pointer;transition:background .2s}
     .primary{background:#10b981}.secondary{background:#6366f1}.danger{background:#dc2626}.info{background:#0ea5e9}
@@ -46,12 +43,13 @@
     <h1>Retail Catalog Tagger</h1>
     <p>
       Tag each product as a <strong>T‑Shirt</strong> or <strong>Handbag</strong>.<br>
-      Drag & drop, click/tap, or press <kbd>T</kbd>/<kbd>H</kbd>. Correct matches play a chime; match all 10 to hear "You won!".
+      Drag & drop, click/tap, or press <kbd>T</kbd>/<kbd>H</kbd>. Correct matches play a chime; wrong matches play a buzz; match all 10 to hear "You won!".
     </p>
   </header>
 
-  <!-- Hidden audio elements (royalty‑free from mixkit.co) -->
+  <!-- Hidden audio elements -->
   <audio id="correctSound" src="audio/correct.mp3" preload="auto" aria-label="Correct answer chime"></audio>
+  <audio id="wrongSound" src="audio/wrong.mp3" preload="auto" aria-label="Wrong answer buzz"></audio>
   <audio id="winSound" src="audio/win.mp3" preload="auto" aria-label="Winning fanfare"></audio>
 
   <main id="main" tabindex="-1">
@@ -81,7 +79,6 @@
   </main>
 
   <script>
-    /* DATASET */
     const items=[
       {src:'https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
       {src:'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',category:'handbag'},
@@ -95,10 +92,8 @@
       {src:'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80',category:'handbag'}
     ];
 
-    /* STATE */
     let current=0,score=0;const answered=Array(items.length).fill(false);
 
-    /* DOM */
     const img=document.getElementById('product-img');
     const btnT=document.getElementById('btn-tshirt');
     const btnH=document.getElementById('btn-handbag');
@@ -110,17 +105,14 @@
     const resetBtn=document.getElementById('reset-btn');
     const live=document.getElementById('live');
 
-    /* AUDIO */
     const correctSound=document.getElementById('correctSound');
+    const wrongSound=document.getElementById('wrongSound');
     const winSound=document.getElementById('winSound');
 
-    /* UTILS */
     const announce=msg=>{live.textContent='';setTimeout(()=>live.textContent=msg,40);};
     const updateStats=()=>{scoreSpan.textContent=score;itemSpan.textContent=current+1;};
-
     const resetBuckets=()=>[btnT,btnH].forEach(b=>b.classList.remove('correct','wrong','hover'));
 
-    /* LOAD CARD */
     function loadItem(){
       const item=items[current];
       img.src=item.src;
@@ -133,14 +125,15 @@
       updateStats();
     }
 
-    /* CLASSIFY */
     function classify(choice){
       const correct=choice===items[current].category;
       const btn=choice==='tshirt'?btnT:btnH;
       btn.classList.add(correct?'correct':'wrong');
       if(correct){
-        // Play chime only on first correct attempt
         if(!answered[current]) correctSound.play();
+      } else {
+        wrongSound.currentTime = 0;
+        wrongSound.play();
       }
       announce(correct?`Correct. Score ${(answered[current]?score:score+1)} of 10.`:'Wrong. Try again.');
       if(correct && !answered[current]){
@@ -155,17 +148,14 @@
       }
     }
 
-    /* CLICK */
     btnT.addEventListener('click',()=>classify('tshirt'));
     btnH.addEventListener('click',()=>classify('handbag'));
 
-    /* KEYBOARD */
     window.addEventListener('keydown',e=>{
       if(e.key.toLowerCase()==='t') classify('tshirt');
       if(e.key.toLowerCase()==='h') classify('handbag');
     });
 
-    /* DRAG & DROP */
     img.addEventListener('dragstart',e=>{
       e.dataTransfer.effectAllowed='move';
       img.classList.add('dragging');
@@ -176,31 +166,15 @@
     [btnT,btnH].forEach(bucket=>{
       bucket.addEventListener('dragover',e=>{e.preventDefault();bucket.classList.add('hover');});
       bucket.addEventListener('dragleave',()=>bucket.classList.remove('hover'));
-      bucket.addEventListener('drop',e=>{
-        e.preventDefault();bucket.classList.remove('hover');
-        classify(bucket.dataset.category);
-      });
+      bucket.addEventListener('drop',e=>{e.preventDefault();bucket.classList.remove('hover');classify(bucket.dataset.category);});
     });
 
-    /* NAV CONTROLS */
-    nextBtn.addEventListener('click',()=>{
-      if(current<items.length-1){current++;loadItem();}
-      else announce('Last card reached. End game or reset.');
-    });
+    nextBtn.addEventListener('click',()=>{current<items.length-1?current++:announce('Last card reached.');loadItem();});
     prevBtn.addEventListener('click',()=>{if(current>0){current--;loadItem();}});
-
-    endBtn.addEventListener('click',()=>{
-      announce(`Game over. Final score ${score} out of 10.`);
-      alert(`Game Over! You scored ${score} / ${items.length}`);
-    });
-
-    resetBtn.addEventListener('click',()=>{
-      current=0;score=0;answered.fill(false);loadItem();announce('Game reset.');
-    });
-
+    endBtn.addEventListener('click',()=>{announce(`Game over. Final score ${score} out of 10.`);alert(`Game Over! You scored ${score} / ${items.length}`);});
+    resetBtn.addEventListener('click',()=>{current=0;score=0;answered.fill(false);loadItem();announce('Game reset.');});
     setInterval(()=>prevBtn.disabled=current===0,250);
 
-    /* INIT */
     loadItem();
   </script>
 </body>
