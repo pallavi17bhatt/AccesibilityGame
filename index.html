@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail Catalog Tagger – Prototype v4</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#f3f4f6;display:flex;flex-direction:column;align-items:center;padding:2rem;min-height:100vh;color:#111827}
+    h1{margin-bottom:1rem;font-size:1.9rem;text-align:center}
+    #game-wrapper{display:flex;flex-direction:column;align-items:center;gap:1.5rem;width:100%;max-width:880px}
+    #image-box{width:320px;height:320px;border-radius:1rem;overflow:hidden;box-shadow:0 6px 12px rgba(0,0,0,.1);background:#fff}
+    #image-box img{width:100%;height:100%;object-fit:cover;user-select:none;cursor:grab}
+    .buckets{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;width:100%}
+    .bucket{background:#e5e7eb;border-radius:1rem;padding:2rem 1rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;min-height:190px;transition:.25s all}
+    .bucket.drag-over{background:#d1fae5;transform:scale(1.05)}
+    .bucket.correct{background:#bbf7d0}
+    .bucket.wrong{background:#fecaca}
+    .bucket-icon{font-size:3rem}
+    .bucket-label{font-size:1.15rem;font-weight:600}
+    #controls{display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center}
+    .btn{padding:.55rem 1.1rem;font-size:1rem;border:none;border-radius:.5rem;cursor:pointer;transition:background .2s;color:#fff}
+    .primary{background:#10b981}.primary:disabled{opacity:.5;cursor:not-allowed}
+    .secondary{background:#6366f1}.danger{background:#ef4444}
+    .info{background:#0ea5e9}
+    #stats{font-size:1rem}
+  </style>
+</head>
+<body>
+  <h1>Retail Catalog Tagger</h1>
+  <div id="game-wrapper">
+    <div id="image-box"><img id="product-img" draggable="true" alt="Product to classify" /></div>
+
+    <div class="buckets">
+      <div class="bucket" data-category="tshirt"><div class="bucket-icon">👕</div><div class="bucket-label">T‑Shirt</div></div>
+      <div class="bucket" data-category="handbag"><div class="bucket-icon">👜</div><div class="bucket-label">Handbag</div></div>
+    </div>
+
+    <p id="stats">Score: <span id="score">0</span> / 10 &nbsp;|&nbsp; Card: <span id="current-item">1</span> / 10</p>
+
+    <div id="controls">
+      <button id="prev-btn" class="btn secondary">← Previous</button>
+      <button id="next-btn" class="btn primary" disabled>Next →</button>
+      <button id="end-btn" class="btn danger">End Game</button>
+      <button id="reset-btn" class="btn info">Refresh Score</button>
+    </div>
+  </div>
+
+  <script>
+    // --- DATASET (10 items) ---
+    const items=[
+      {src:'https://images.unsplash.com/photo-1521334884684-d80222895322?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
+      {src:'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',category:'handbag'},
+      {src:'https://images.unsplash.com/photo-1556909212-d9b2a3e2a2f4?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
+      {src:'https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=800&q=80',category:'handbag'},
+      {src:'https://images.unsplash.com/photo-1582782080541-44035d3992de?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
+      {src:'https://images.unsplash.com/photo-1594633315081-c06e88e1a30c?auto=format&fit=crop&w=800&q=80',category:'handbag'},
+      {src:'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
+      {src:'https://images.unsplash.com/photo-1610396323497-5f6455d4df58?auto=format&fit=crop&w=800&q=80',category:'handbag'},
+      {src:'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80',category:'tshirt'},
+      {src:'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=800&q=80',category:'handbag'}
+    ];
+
+    // --- STATE ---
+    let current=0;
+    let score=0;
+    const answered=Array(items.length).fill(false); // record of correct attempts
+
+    // --- DOM ---
+    const img=document.getElementById('product-img');
+    const buckets=document.querySelectorAll('.bucket');
+    const scoreSpan=document.getElementById('score');
+    const itemSpan=document.getElementById('current-item');
+    const prevBtn=document.getElementById('prev-btn');
+    const nextBtn=document.getElementById('next-btn');
+    const endBtn=document.getElementById('end-btn');
+    const resetBtn=document.getElementById('reset-btn');
+
+    // --- FUNCTIONS ---
+    function updateStats(){
+      scoreSpan.textContent=score;
+      itemSpan.textContent=current+1;
+    }
+
+    function resetBucketStyles(){
+      buckets.forEach(b=>b.classList.remove('correct','wrong','drag-over'));
+      buckets.forEach(b=>b.style.background='#e5e7eb');
+    }
+
+    function loadItem(){
+      const item=items[current];
+      img.src=item.src;
+      img.dataset.category=item.category;
+      nextBtn.disabled=!answered[current];
+      resetBucketStyles();
+      if(answered[current]){
+        // show which bucket is correct if already answered
+        const correctBucket=[...buckets].find(b=>b.dataset.category===item.category);
+        correctBucket.classList.add('correct');
+      }
+      updateStats();
+    }
+
+    // --- DRAG EVENTS ---
+    img.addEventListener('dragstart',e=>{
+      e.dataTransfer.effectAllowed='move';
+      setTimeout(()=>img.style.opacity='0.5',0);
+    });
+    img.addEventListener('dragend',()=>{img.style.opacity='1';});
+
+    buckets.forEach(bucket=>{
+      bucket.addEventListener('dragover',e=>{e.preventDefault();bucket.classList.add('drag-over');});
+      bucket.addEventListener('dragleave',()=>bucket.classList.remove('drag-over'));
+      bucket.addEventListener('drop',e=>{
+        e.preventDefault();bucket.classList.remove('drag-over');
+        const correct=bucket.dataset.category===items[current].category;
+        bucket.classList.add(correct?'correct':'wrong');
+        // score only first correct attempt per card
+        if(correct && !answered[current]){
+          answered[current]=true;
+          score=Math.min(score+1,items.length); // cap at 10
+          nextBtn.disabled=false;
+          updateStats();
+        }
+      });
+    });
+
+    // --- CONTROL BUTTONS ---
+    nextBtn.addEventListener('click',()=>{
+      if(current<items.length-1){current++;loadItem();}
+      else alert("You're at the last card. Use End Game to finish.");
+    });
+
+    prevBtn.addEventListener('click',()=>{if(current>0){current--;loadItem();}});
+
+    endBtn.addEventListener('click',()=>{
+      alert(`Game Over! You scored ${score} / ${items.length}`);
+    });
+
+    resetBtn.addEventListener('click',()=>{
+      current=0;
+      score=0;
+      answered.fill(false);
+      loadItem();
+    });
+
+    // disable prev when at first card
+    setInterval(()=>prevBtn.disabled=current===0,200);
+
+    // --- INIT ---
+    loadItem();
+  </script>
+</body>
+</html>
